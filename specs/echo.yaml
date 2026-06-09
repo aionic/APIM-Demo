@@ -1,0 +1,19 @@
+openapi: 3.0.0
+info:
+  title: Echo Demo API
+  version: 1.0.0
+  description: Minimal echo endpoint used to demonstrate caller IP and tracing.
+servers:
+  - url: https://postman-echo.com
+paths:
+  /get:
+    get:
+      summary: Echo the incoming request
+      operationId: echoRequest
+      responses:
+        '200':
+          description: Echo response returned successfully
+          content:
+            application/json:
+              schema:
+                type: object

@@ -1,0 +1,30 @@
+openapi: 3.0.0
+info:
+  title: Weather Demo API
+  version: 1.0.0
+  description: Minimal public weather sample used for the APIM demo.
+servers:
+  - url: https://api.open-meteo.com/v1
+paths:
+  /forecast:
+    get:
+      summary: Get the current weather forecast
+      operationId: getForecast
+      parameters:
+        - in: query
+          name: latitude
+          schema:
+            type: number
+          required: true
+        - in: query
+          name: longitude
+          schema:
+            type: number
+          required: true
+      responses:
+        '200':
+          description: Forecast returned successfully
+          content:
+            application/json:
+              schema:
+                type: object

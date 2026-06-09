@@ -1,0 +1,25 @@
+openapi: 3.0.0
+info:
+  title: AI Gateway Demo API
+  version: 1.0.0
+  description: Lightweight OpenAI-style placeholder used for the AI gateway demo path.
+servers:
+  - url: https://example.openai.azure.com
+paths:
+  /chat/completions:
+    post:
+      summary: Generate a chat completion
+      operationId: chatCompletions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Completion returned successfully
+          content:
+            application/json:
+              schema:
+                type: object
