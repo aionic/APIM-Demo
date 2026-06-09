@@ -65,7 +65,7 @@ resource "azurerm_cognitive_account" "this" {
   sku_name                      = "S0"
   custom_subdomain_name         = local.ai_service_name
   public_network_access_enabled = true
-  local_auth_enabled            = true
+  local_auth_enabled            = false
   tags                          = local.tags
 }
 

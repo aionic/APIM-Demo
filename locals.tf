@@ -12,7 +12,7 @@ locals {
 
   tags = {
     environment = "demo"
-    workload    = "apim-migration"
+    workload    = "apim-platform"
     owner       = "customer-demo"
   }
 

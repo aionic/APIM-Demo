@@ -1,57 +1,58 @@
-# Architecture and Demo Design
+# Architecture
 
 ## Solution summary
 
-This repository provisions a Terraform-first Azure API Management (APIM) demo that aligns to a Kong-to-APIM migration story. The deployment uses Azure Verified Modules where practical, with APIM Standard v2 as the public ingress layer and Azure-native services for identity, secrets, diagnostics, and sample backend experiences.
+This repository provisions an Azure API Management platform using Terraform and Azure Verified Modules. APIM Standard v2 serves as the public API gateway and integrates with Entra ID, Key Vault, Log Analytics, and an AI backend endpoint pattern.
 
 ## Core topology
 
-```text
-Internet / Customer browser
-        |
-        v
-  Azure APIM Standard v2
-   - IP allowlist ingress
-   - OAuth / Entra ID auth
-   - Policy snippets + named values
-   - Trace / correlation headers
-   |
-   +--> weather / time / echo sample APIs
-   +--> AI-style LLM front-door path
-   |
-   +--> Key Vault (secret references)
-   +--> Log Analytics (diagnostics, audit, usage)
+```mermaid
+flowchart LR
+    C[Client / Developer Portal User] --> APIM[Azure API Management Standard v2]
+
+    subgraph APIM_LAYER["API Gateway Layer"]
+      APIM --> WEATHER[Weather API]
+      APIM --> TIME[Time API]
+      APIM --> ECHO[Echo API]
+      APIM --> AIAPI[AI Gateway API]
+    end
+
+    APIM --> AUTH[Microsoft Entra ID OAuth2]
+    APIM --> KV[Azure Key Vault]
+    APIM --> LAW[Log Analytics Workspace]
+    AIAPI --> AIBACKEND[Azure OpenAI / AI Endpoint]
 ```
 
-## Resource flow
+## Solution flow
 
-1. Terraform creates a Resource Group, Log Analytics workspace, Key Vault, and the APIM service.
-2. APIM uses a managed identity to access Key Vault-backed values and backend resources.
-3. Diagnostic settings stream APIM gateway, portal, and audit signals to Log Analytics.
-4. Public APIs are exposed through APIM with lightweight OpenAPI definitions and policies for tracing, headers, and IP filtering.
-5. The demo path is structured to support a future Foundry / Azure OpenAI backend with APIM load-balancing and traceability.
+1. Terraform deploys foundational resources: Resource Group, Log Analytics, Key Vault, APIM, and AI endpoint resource.
+2. APIM is configured with managed identity, named values, products, subscriptions, and API imports from OpenAPI specs.
+3. Inbound policy applies IP allowlisting and correlation/tracing headers before forwarding to backend APIs.
+4. Secret-backed values are stored in Key Vault and consumed by APIM policy/runtime configuration.
+5. Telemetry and audit logs are sent to Log Analytics for operational monitoring.
 
-## Security and identity story
+## Security and identity
 
-- APIM public ingress is restricted through a configurable allowlist of IP addresses or ranges.
-- OAuth2 / Entra ID configuration is set up as an authorization server in APIM for the demo narrative.
-- Key Vault-backed named values and secret references support a clean secret-management story for the customer.
-- All Azure resource access from APIM is designed to rely on managed identity rather than embedded secrets.
+- APIM ingress is restricted with configurable IP allowlist policy.
+- OAuth2 authorization server is configured against Microsoft Entra ID.
+- Managed identity is used for APIM access to dependent Azure resources.
+- Secrets are handled through Key Vault and APIM named values.
 
-## Policy and observability story
+## Policy and observability
 
-- Policy snippets demonstrate IP filtering, named-value references, header injection, and trace statements.
-- Diagnostic settings push runtime and audit signals to Log Analytics for monitoring and usage analysis.
-- The design supports user-level traceability, correlation IDs, and the kind of observability expected in an LLM-facing gateway path.
+- Policy snippets implement network controls, header enrichment, and trace signals.
+- Diagnostic settings capture APIM gateway and developer portal audit logs.
+- Log Analytics is the central sink for runtime and operational telemetry.
 
-## Demo considerations
+## Terraform alignment
 
-- The current demo is intentionally lightweight and single-region for easy customer deployment.
-- The AI/LLM path is wired as an APIM-fronted backend flow rather than a full orchestration stack, keeping the scenario easy to show in a customer session.
-- The current Terraform path is already validated locally; a live apply in your tenant should be used to confirm the final runtime behavior of your subscribed APIM and policy configuration.
+- Provider and Terraform versions are constrained in `versions.tf`.
+- Resources and policy composition are centralized through locals and AVM module inputs.
+- State artifacts are excluded from source control with `.gitignore`.
+- Recommended deployment pattern is `plan -out` followed by `apply` on the saved plan.
 
 ## Recommended next steps
 
-1. Replace the placeholder AI backend with the real Foundry / Azure OpenAI endpoint once the customer wants a production-like LLM deployment path.
-2. Add a small backend service or public API endpoint if you want richer sample responses for the weather/time/demo story.
-3. Extend the diagnostics with workbooks, alerts, or dashboards for a full operations narrative.
+1. Move Terraform state to a remote backend (Azure Storage) for collaborative deployments.
+2. Replace placeholder AI endpoint configuration with your production model deployment.
+3. Add alerting/workbooks on top of Log Analytics for operational readiness.
