@@ -75,6 +75,12 @@ resource "azurerm_role_assignment" "apim_ai_user" {
   principal_id         = module.apim.workspace_identity.principal_id
 }
 
+resource "azurerm_role_assignment" "current_user_apim_service_contributor" {
+  scope                = module.apim.resource_id
+  role_definition_name = "API Management Service Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 resource "azurerm_api_management_authorization_server" "entra" {
   name                = "entra-oauth-demo"
   api_management_name = module.apim.name
@@ -96,6 +102,68 @@ resource "azurerm_api_management_authorization_server" "entra" {
   depends_on = [module.apim]
 }
 
+resource "azurerm_api_management_identity_provider_aad" "entra" {
+  api_management_name = module.apim.name
+  resource_group_name = azurerm_resource_group.this.name
+  client_id           = var.entra_client_id
+  client_secret       = var.entra_client_secret
+  allowed_tenants     = [coalesce(var.tenant_id, data.azurerm_client_config.current.tenant_id)]
+  signin_tenant       = coalesce(var.tenant_id, data.azurerm_client_config.current.tenant_id)
+
+  depends_on = [module.apim]
+}
+
+resource "azapi_resource" "apim_portal_setting_signin" {
+  count     = local.apim_is_v2_sku ? 0 : 1
+  type      = "Microsoft.ApiManagement/service/portalsettings@2022-08-01"
+  name      = "signin"
+  parent_id = module.apim.resource_id
+  body = {
+    properties = {
+      enabled = true
+    }
+  }
+
+  depends_on = [module.apim]
+}
+
+resource "azapi_resource" "apim_portal_setting_signup" {
+  count     = local.apim_is_v2_sku ? 0 : 1
+  type      = "Microsoft.ApiManagement/service/portalsettings@2022-08-01"
+  name      = "signup"
+  parent_id = module.apim.resource_id
+  body = {
+    properties = {
+      enabled = true
+      termsOfService = {
+        enabled         = false
+        consentRequired = false
+        text            = ""
+      }
+    }
+  }
+
+  depends_on = [module.apim]
+}
+
+resource "azapi_resource" "apim_portal_revision_published" {
+  count     = local.apim_is_v2_sku ? 0 : 1
+  type      = "Microsoft.ApiManagement/service/portalRevisions@2022-08-01"
+  name      = "terraform-published"
+  parent_id = module.apim.resource_id
+  body = {
+    properties = {
+      description = "Developer portal published by Terraform"
+      isCurrent   = true
+    }
+  }
+
+  depends_on = [
+    azapi_resource.apim_portal_setting_signin,
+    azapi_resource.apim_portal_setting_signup
+  ]
+}
+
 module "apim" {
   source  = "Azure/avm-res-apimanagement-service/azurerm"
   version = ">= 0.9.0, < 1.0"
@@ -105,7 +173,7 @@ module "apim" {
   publisher_email     = var.publisher_email
   publisher_name      = var.publisher_name
   resource_group_name = azurerm_resource_group.this.name
-  sku_name            = "StandardV2_1"
+  sku_name            = var.apim_sku_name
   tags                = local.tags
   managed_identities = {
     system_assigned = true

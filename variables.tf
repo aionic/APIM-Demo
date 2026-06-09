@@ -22,6 +22,12 @@ variable "publisher_name" {
   description = "Publisher name shown in the developer portal."
 }
 
+variable "apim_sku_name" {
+  type        = string
+  default     = "StandardV2_1"
+  description = "APIM SKU. Portal settings/publish automation is only available for non-V2 SKUs."
+}
+
 variable "allowed_ip_addresses" {
   type        = list(string)
   default     = ["167.220.149.220"]

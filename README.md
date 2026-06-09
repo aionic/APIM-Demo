@@ -10,9 +10,11 @@ This solution provisions:
 
 - APIM Standard v2 with managed identity
 - API surface for weather, time, echo, and AI gateway patterns
-- Entra ID OAuth authorization server configuration
+- Entra ID OAuth authorization server and APIM Entra identity provider configuration
+- AzAPI-managed developer portal sign-in/sign-up settings and published portal revision for non-V2 APIM SKUs
 - Key Vault-backed secret flow for APIM named values
 - Log Analytics diagnostics for gateway, portal, and audit telemetry
+- APIM service RBAC grant for the currently authenticated deployment identity
 
 ## Architecture
 
@@ -79,7 +81,9 @@ Recommended variable handling:
 - `locals.tf` — API/policy configuration and derived naming
 - `variables.tf` — deployment configuration inputs
 - `specs/` — OpenAPI definitions imported into APIM
+- `scripts/` — PowerShell demo traffic generators for APIM telemetry
 - `docs/architecture.md` — architecture and operations details
+- `docs/scripts/telemetry-walkthrough.md` — telemetry demo and query walkthrough
 
 ## License
 

@@ -9,6 +9,7 @@ locals {
   ai_service_name      = substr("${local.name_prefix}ais${random_string.suffix.result}", 0, 24)
   ai_hub_name          = substr("${local.name_prefix}hub${random_string.suffix.result}", 0, 64)
   ai_project_name      = substr("${local.name_prefix}proj${random_string.suffix.result}", 0, 64)
+  apim_is_v2_sku       = strcontains(var.apim_sku_name, "V2_")
 
   tags = {
     environment = "demo"
@@ -33,13 +34,10 @@ ${join("\n", [for ip in var.allowed_ip_addresses : "      <address>${ip}</addres
 </policies>
 XML
 
-  api_policy = <<-XML
+ api_policy = <<-XML
 <policies>
  <inbound>
    <base />
-   <ip-filter action="allow">
-${join("\n", [for ip in var.allowed_ip_addresses : "      <address>${ip}</address>"])}
-   </ip-filter>
    <set-header name="x-demo-secret" exists-action="override">
      <value>{{DemoSecret}}</value>
    </set-header>
