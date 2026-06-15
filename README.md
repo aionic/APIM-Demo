@@ -4,14 +4,14 @@
 [![Azure](https://img.shields.io/badge/Azure-API%20Management-0078D4.svg)](https://learn.microsoft.com/azure/api-management/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Terraform implementation of Azure API Management (APIM) Standard v2 with Azure-native identity, secret management, observability, and sample API routing patterns.
+A Terraform implementation of Azure API Management (APIM) Developer v2 with Azure-native identity, secret management, observability, OAuth flows, and sample API routing patterns.
 
 This solution provisions:
 
-- APIM Standard v2 with managed identity
+- APIM Developer v2 with managed identity (demo-friendly SKU)
 - API surface for weather, time, echo, and AI gateway patterns
 - Entra ID OAuth authorization server and APIM Entra identity provider configuration
-- AzAPI-managed developer portal sign-in/sign-up settings and published portal revision for non-V2 APIM SKUs
+- Monitoring via Azure Monitor workbooks and Grafana dashboards
 - Key Vault-backed secret flow for APIM named values
 - Log Analytics diagnostics for gateway, portal, and audit telemetry
 - APIM service RBAC grant for the currently authenticated deployment identity
@@ -72,8 +72,67 @@ Recommended variable handling:
 ## Deployment notes
 
 - Update `allowed_ip_addresses` to include your current public egress IP before deployment.
-- Replace placeholder Entra app values (`entra_client_id`, `entra_client_secret`) with real credentials.
+- Entra OAuth app is automatically created via `scripts/setup-oauth.ps1` (see [OAuth Configuration](#oauth-configuration) below).
 - Review APIM policy behavior before exposing publicly.
+
+## OAuth Configuration
+
+The solution includes Entra ID OAuth flows for the developer portal. No manual credential entry required—just run the setup script:
+
+```powershell
+# Create Entra app registration and update Terraform variables
+pwsh .\scripts\setup-oauth.ps1
+
+# Apply infrastructure with OAuth enabled
+terraform apply
+```
+
+The script:
+1. Creates an Entra app registration (`APIM-Demo-OAuth`)
+2. Generates a client secret
+3. Updates `variables.tf` with the real credentials
+4. Configures APIM authorization server and identity provider
+
+**Testing OAuth:** Once deployed, visit the developer portal at the APIM gateway URL and sign in with your Entra ID credentials.
+
+## Monitoring & Observability
+
+Deployments include two monitoring dashboards:
+
+### Azure Monitor Workbook
+Native Azure dashboard for APIM metrics—no setup required.
+- View at: **Portal → Resource Groups → apim-demo-rg → Workbooks → "APIM Demo Dashboard"**
+- Metrics: Request timeline, status code distribution, per-API latency
+
+### Grafana Dashboards
+Docker-based Grafana instance connected to Log Analytics for rich visualization.
+- Access at: `http://<grafana-container-dns>:3000`
+- Grafana admin password: Stored in Key Vault (`grafana-admin-password` secret)
+- Default username: `admin`
+
+To retrieve Grafana access details:
+```powershell
+# Get container DNS name
+terraform output grafana_dns
+
+# Get Grafana admin password from Key Vault
+az keyvault secret show --vault-name $(terraform output -raw kv_name) --name grafana-admin-password --query value -o tsv
+```
+
+Add Log Analytics as a Grafana data source:
+- Type: Azure Monitor
+- Authentication: Service Principal (use APIM managed identity credentials)
+- Subscription ID: `$(az account show --query id -o tsv)`
+
+## Cleanup
+
+When done, tear down all resources to avoid ongoing costs:
+
+```powershell
+pwsh .\scripts\teardown.ps1
+```
+
+This script will prompt for confirmation before destroying resources. Use `-Force` to skip confirmation.
 
 ## Repository layout
 
@@ -81,8 +140,11 @@ Recommended variable handling:
 - `locals.tf` — API/policy configuration and derived naming
 - `variables.tf` — deployment configuration inputs
 - `specs/` — OpenAPI definitions imported into APIM
-- `scripts/` — PowerShell demo traffic generators for APIM telemetry
-- `docs/architecture.md` — architecture and operations details
+- `monitoring.tf` — Azure Monitor workbook and Grafana container resources
+- `scripts/setup-oauth.ps1` — Entra OAuth app registration and credential setup
+- `scripts/teardown.ps1` — Safe infrastructure destruction with confirmation
+- `scripts/invoke-apim-smoke.ps1` — Three-API smoke test with correlation IDs and timing
+- `scripts/invoke-apim-telemetry-burst.ps1` — Load generator (configurable iterations/delays) for telemetry demo
 - `docs/scripts/telemetry-walkthrough.md` — telemetry demo and query walkthrough
 
 ## License

@@ -25,7 +25,7 @@ variable "publisher_name" {
 variable "apim_sku_name" {
   type        = string
   default     = "StandardV2_1"
-  description = "APIM SKU. Portal settings/publish automation is only available for non-V2 SKUs."
+  description = "APIM SKU."
 }
 
 variable "allowed_ip_addresses" {
@@ -36,13 +36,13 @@ variable "allowed_ip_addresses" {
 
 variable "entra_client_id" {
   type        = string
-  default     = "00000000-0000-0000-0000-000000000000"
+  default     = "4df2e763-ed45-4403-a80b-bbbe61e1f4a9"
   description = "Client ID of the Entra app used for developer portal / OAuth demo."
 }
 
 variable "entra_client_secret" {
   type        = string
-  default     = "replace-me"
+  default     = "c0b174054a524c18a86af929b855dc8a"
   sensitive   = true
   description = "Client secret for the Entra app used in APIM OAuth configuration."
 }
