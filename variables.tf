@@ -33,23 +33,25 @@ variable "apim_sku_name" {
   }
 }
 
-variable "allowed_ip_addresses" {
-  type        = list(string)
-  default     = ["167.220.149.220"]
-  description = "IP addresses or ranges allowed to reach the public APIM ingress for the demo. Use your public IPv4/IPv6 address for the first run."
-}
-
 variable "entra_client_id" {
   type        = string
-  default     = "4df2e763-ed45-4403-a80b-bbbe61e1f4a9"
   description = "Client ID of the Entra app used for developer portal / OAuth demo."
+
+  validation {
+    condition     = length(trimspace(var.entra_client_id)) > 0
+    error_message = "Set entra_client_id via tfvars or TF_VAR_entra_client_id."
+  }
 }
 
 variable "entra_client_secret" {
   type        = string
-  default     = "c0b174054a524c18a86af929b855dc8a"
   sensitive   = true
   description = "Client secret for the Entra app used in APIM OAuth configuration."
+
+  validation {
+    condition     = length(trimspace(var.entra_client_secret)) > 0
+    error_message = "Set entra_client_secret via tfvars or TF_VAR_entra_client_secret. Do not hardcode secrets in source."
+  }
 }
 
 variable "tenant_id" {

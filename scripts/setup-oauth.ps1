@@ -27,58 +27,42 @@ if (-not $gateway) {
 }
 Write-Host "✓ Gateway: $gateway" -ForegroundColor Green
 
-# Check for existing Entra app
-Write-Host "`n2. Checking for existing Entra app registration..."
-$existingAppId = terraform output -raw entra_app_id 2>/dev/null || $null
-if ($existingAppId -and $existingAppId -ne "00000000-0000-0000-0000-000000000000") {
-  Write-Host "✓ Existing app found: $existingAppId" -ForegroundColor Green
-  $appId = $existingAppId
-} else {
-  Write-Host "   Creating new app registration..."
-  $appJson = az ad app create `
-    --display-name "APIM-Demo-OAuth" `
-    --web-redirect-uris `
-      "$gateway/oauth/signin" `
-      "$gateway/developer" `
-      "http://localhost:3000" `
-    --query "{appId: appId}" -o json
-  $appId = $appJson | ConvertFrom-Json | Select-Object -ExpandProperty appId
-  Write-Host "✓ Created: $appId" -ForegroundColor Green
-}
+# Create a new app registration
+Write-Host "`n2. Creating Entra app registration..."
+$appId = az ad app create `
+  --display-name "APIM-Demo-OAuth" `
+  --web-redirect-uris `
+    "$gateway/oauth/signin" `
+    "$gateway/developer" `
+    "http://localhost:3000" `
+  --sign-in-audience "AzureADMyOrg" `
+  --query appId -o tsv
+Write-Host "✓ Created: $appId" -ForegroundColor Green
 
-# Create/reset client secret
+# Create client secret
 Write-Host "`n3. Creating client secret..."
-try {
-  $secretJson = az ad sp credential reset --id $appId --query "{clientSecret: password}" -o json 2>/dev/null
-  $clientSecret = $secretJson | ConvertFrom-Json | Select-Object -ExpandProperty clientSecret
-} catch {
-  # If SP doesn't exist, create it first
-  Write-Host "   Creating service principal..."
-  az ad sp create --id $appId 2>/dev/null | Out-Null
-  $secretJson = az ad sp credential reset --id $appId --query "{clientSecret: password}" -o json
-  $clientSecret = $secretJson | ConvertFrom-Json | Select-Object -ExpandProperty clientSecret
-}
+$secretJson = az ad app credential reset --id $appId --years 1 -o json | ConvertFrom-Json
+$clientSecret = $secretJson.password
 Write-Host "✓ Secret generated (length: $($clientSecret.Length))" -ForegroundColor Green
 
-# Update variables.tf
-Write-Host "`n4. Updating variables.tf..."
-$varContent = Get-Content variables.tf -Raw
-
-# Replace entra_client_id
-$varContent = $varContent -replace `
-  '(variable "entra_client_id".*?default\s*=\s*)"[^"]*"', `
-  "`$1`"$appId`""
-
-# Replace entra_client_secret
-$varContent = $varContent -replace `
-  '(variable "entra_client_secret".*?default\s*=\s*)"[^"]*"', `
-  "`$1`"$clientSecret`""
-
-$varContent | Set-Content variables.tf
-Write-Host "✓ variables.tf updated" -ForegroundColor Green
+# Write local tfvars instead of editing source variables
+Write-Host "`n4. Updating local tfvars..."
+$envDir = Join-Path $repo "env"
+$tfvarsPath = Join-Path $envDir "demo.auto.tfvars"
+@"
+location            = "westus3"
+demo_name           = "apim-demo"
+publisher_email     = "demo-admin@contoso.example"
+publisher_name      = "Contoso Demo"
+apim_sku_name       = "StandardV2"
+tenant_id           = "$(az account show --query tenantId -o tsv)"
+entra_client_id     = "$appId"
+entra_client_secret = "$clientSecret"
+"@ | Set-Content $tfvarsPath
+Write-Host "✓ Wrote $tfvarsPath" -ForegroundColor Green
 
 Write-Host "`n✅ OAuth setup complete!" -ForegroundColor Green
 Write-Host "`nNext steps:"
 Write-Host "  1. terraform validate"
 Write-Host "  2. terraform apply"
-Write-Host "  3. Visit the developer portal and sign in with your Entra ID credentials"
+Write-Host "  3. Open the developer portal and sign in with your Entra ID credentials"

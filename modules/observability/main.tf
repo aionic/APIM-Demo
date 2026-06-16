@@ -1,7 +1,6 @@
-# Azure Monitor Workbook for APIM dashboard
 resource "azurerm_resource_group_template_deployment" "apim_monitor_workbook" {
   name                = "apim-monitor-workbook"
-  resource_group_name = azurerm_resource_group.this.name
+  resource_group_name = var.resource_group_name
   deployment_mode     = "Incremental"
 
   template_spec_version_id = null
@@ -15,7 +14,7 @@ resource "azurerm_resource_group_template_deployment" "apim_monitor_workbook" {
       }
       "workbookSourceId" = {
         "type"         = "string"
-        "defaultValue" = azurerm_log_analytics_workspace.this.id
+        "defaultValue" = var.log_analytics_workspace_id
       }
     }
     "resources" = [
@@ -23,7 +22,7 @@ resource "azurerm_resource_group_template_deployment" "apim_monitor_workbook" {
         "type"       = "Microsoft.Insights/workbooks"
         "apiVersion" = "2021-03-08"
         "name"       = "[guid(parameters('workbookSourceId'))]"
-        "location"   = azurerm_resource_group.this.location
+        "location"   = var.location
         "kind"       = "shared"
         "properties" = {
           "displayName" = "[parameters('workbookDisplayName')]"
@@ -72,48 +71,24 @@ resource "azurerm_resource_group_template_deployment" "apim_monitor_workbook" {
   })
 }
 
-# Grafana container instance
-resource "azurerm_container_group" "grafana" {
-  name                = "${local.name_prefix}-grafana-${random_string.suffix.result}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  os_type             = "Linux"
-  ip_address_type     = "Public"
-  dns_name_label      = "${local.name_prefix}-grafana-${random_string.suffix.result}"
+resource "azurerm_dashboard_grafana" "this" {
+  name                              = var.grafana_name
+  resource_group_name               = var.resource_group_name
+  location                          = var.location
+  grafana_major_version             = 12
+  api_key_enabled                   = false
+  deterministic_outbound_ip_enabled = false
+  public_network_access_enabled     = true
 
-  container {
-    name   = "grafana"
-    image  = "grafana/grafana:latest"
-    cpu    = "0.5"
-    memory = "1.0"
-
-    ports {
-      port     = 3000
-      protocol = "TCP"
-    }
-
-    environment_variables = {
-      "GF_SECURITY_ADMIN_PASSWORD" = random_password.grafana_admin.result
-      "GF_USERS_ALLOW_SIGN_UP"     = "false"
-    }
+  identity {
+    type = "SystemAssigned"
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
-resource "random_password" "grafana_admin" {
-  length  = 16
-  special = true
+resource "azurerm_role_assignment" "grafana_law_reader" {
+  scope                = var.log_analytics_workspace_id
+  role_definition_name = "Monitoring Reader"
+  principal_id         = azurerm_dashboard_grafana.this.identity[0].principal_id
 }
-
-# Key Vault secret for Grafana admin password
-resource "azurerm_key_vault_secret" "grafana_admin_password" {
-  key_vault_id = azurerm_key_vault.this.id
-  name         = "grafana-admin-password"
-  value        = random_password.grafana_admin.result
-
-  depends_on = [azurerm_key_vault_access_policy.deployer]
-}
-
-
-

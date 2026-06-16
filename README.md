@@ -11,7 +11,7 @@
 Opinionated Terraform deployment for **Azure API Management Standard v2** with:
 1. **AzAPI-provisioned APIM service** (v2 SKU support)
 2. **Entra OAuth** (authorization server + portal identity provider)
-3. **Observability** (Log Analytics, Azure Monitor workbook, Grafana)
+3. **Observability** (Log Analytics, Azure Monitor workbook, Azure Managed Grafana)
 4. **Demo APIs** (weather/time/echo/llm) and repeatable traffic scripts
 
 ## Architecture
@@ -34,7 +34,7 @@ flowchart LR
     APIM --> Entra[Microsoft Entra ID]
     APIM --> AOAI[Azure OpenAI Account]
     LAW --> WB[Azure Monitor Workbook]
-    LAW --> Grafana[Grafana Container]
+    LAW --> Grafana[Azure Managed Grafana]
 ```
 
 ```mermaid
@@ -60,7 +60,7 @@ Extended architecture notes: [`docs/architecture.md`](docs/architecture.md)
 2. APIM Standard v2 (AzAPI) + system-assigned managed identity
 3. APIM APIs, products, subscriptions, and policies
 4. Entra authorization server and portal identity provider
-5. Workbook dashboard + Grafana container with password in Key Vault
+5. Workbook dashboard + Azure Managed Grafana with managed identity
 
 ## Quick start
 
@@ -70,6 +70,24 @@ Extended architecture notes: [`docs/architecture.md`](docs/architecture.md)
 - Terraform `>= 1.9`
 - PowerShell 7+
 
+### Configure local environment files
+
+Create a local tfvars file from the example and fill in your Entra values:
+
+```powershell
+Copy-Item .\env\demo.tfvars.example .\env\demo.auto.tfvars
+```
+
+Required fields:
+- `entra_client_id`
+- `entra_client_secret`
+
+If you want remote state, copy the backend template too:
+
+```powershell
+Copy-Item .\env\backend.azurerm.hcl.example .\env\backend.azurerm.hcl
+```
+
 ### Deploy
 
 ```powershell
@@ -78,6 +96,12 @@ terraform fmt -recursive
 terraform validate
 terraform plan -out tfplan
 terraform apply tfplan
+```
+
+### Optional remote state
+
+```powershell
+terraform init -backend-config=.\env\backend.azurerm.hcl
 ```
 
 ### Run demo traffic
@@ -109,15 +133,22 @@ terraform output -raw apim_portal_url
 ### Azure Monitor workbook
 - Portal -> Resource Group -> Workbooks -> **APIM Demo Dashboard**
 
-### Grafana
+### Azure Managed Grafana
 
 ```powershell
-terraform output -raw grafana_dns
-az keyvault secret show --vault-name $(terraform output -raw kv_name) --name grafana-admin-password --query value -o tsv
+terraform output -raw grafana_url
 ```
 
 Telemetry walkthrough with KQL examples:  
 [`docs/scripts/telemetry-walkthrough.md`](docs/scripts/telemetry-walkthrough.md)
+
+## Demo process
+
+1. Generate or refresh the Entra app values with `pwsh .\scripts\setup-oauth.ps1`.
+2. Apply the infrastructure with Terraform.
+3. Run the smoke script to confirm weather, time, and echo return `200`.
+4. Run the burst script to generate gateway telemetry.
+5. Open the workbook and Managed Grafana endpoint from Terraform output.
 
 ## Cleanup
 
@@ -129,10 +160,13 @@ Use `-Force` to skip prompt.
 
 ## Repository layout
 
-- `main.tf` - core resources and APIM composition
+- `main.tf` - root module composition (platform, apim, observability)
 - `locals.tf` - API maps and policy content
 - `variables.tf` - configurable inputs
-- `monitoring.tf` - workbook + Grafana resources
+- `env/` - checked-in templates; local `.auto.tfvars` and backend files stay ignored
+- `modules/platform/` - core Azure services (RG, LAW, Key Vault, OpenAI)
+- `modules/apim/` - APIM service, APIs, products, subscriptions, OAuth, diagnostics
+- `modules/observability/` - workbook + Azure Managed Grafana
 - `specs/` - OpenAPI documents imported into APIM
 - `scripts/` - deploy/demo/teardown helpers
 - `docs/` - architecture and telemetry docs

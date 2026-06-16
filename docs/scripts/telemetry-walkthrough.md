@@ -8,12 +8,14 @@ This walkthrough uses the scripts in `scripts\` to generate APIM traffic, then s
 - PowerShell 7
 - APIM gateway URL and subscription key
 - Log Analytics workspace name
+- Managed Grafana URL from `terraform output -raw grafana_url`
 
 ```powershell
-$GatewayUrl = "https://apimdemo-apim-sf41.azure-api.net"
-$SubscriptionKey = "<apim-subscription-primary-key>"
-$WorkspaceRg = "apim-demo-rg"
-$WorkspaceName = "apimdemolawsf41"
+$GatewayUrl = terraform output -raw apim_gateway_url
+$SubscriptionKey = (terraform output -json subscription_keys | ConvertFrom-Json).'demo-subscription'.primary_key
+$WorkspaceRg = terraform output -raw resource_group_name
+$WorkspaceName = terraform output -raw workspace_name
+$GrafanaUrl = terraform output -raw grafana_url
 ```
 
 ## 2) Generate telemetry
@@ -119,7 +121,17 @@ union isfuzzy=true AzureDiagnostics, ApiManagementGatewayLogs
 | order by TimeGenerated asc
 ```
 
-## 5) Notes
+## 5) Open Azure Managed Grafana
+
+If your deployment includes Managed Grafana, open the endpoint from Terraform output:
+
+```powershell
+$GrafanaUrl
+```
+
+In Grafana, add/use Azure Monitor data source and query the same Log Analytics workspace for APIM tables.
+
+## 6) Notes
 
 - APIM diagnostics ingestion can lag by a few minutes; if no data appears immediately, rerun the query window for 30-60 minutes.
 - This repo config enables `GatewayLogs`, `WebSocketConnectionLogs`, and `DeveloperPortalAuditLogs` to Log Analytics.

@@ -9,7 +9,7 @@ locals {
   ai_service_name      = substr("${local.name_prefix}ais${random_string.suffix.result}", 0, 24)
   ai_hub_name          = substr("${local.name_prefix}hub${random_string.suffix.result}", 0, 64)
   ai_project_name      = substr("${local.name_prefix}proj${random_string.suffix.result}", 0, 64)
-  apim_is_v2_sku       = var.apim_sku_name == "Developer" || strcontains(var.apim_sku_name, "V2")
+  apim_is_v2_sku       = strcontains(var.apim_sku_name, "V2")
 
   tags = {
     environment = "demo"
@@ -59,7 +59,7 @@ XML
     DemoSecret = {
       display_name = "DemoSecret"
       secret       = true
-      value        = azurerm_key_vault_secret.demo.value
+      value        = module.platform.demo_secret_value
       tags         = ["demo", "secret"]
     }
     WeatherBaseUrl = {
@@ -165,7 +165,7 @@ XML
       revision              = "1"
       description           = "Foundry/OpenAI-style gateway placeholder for the AI demo path"
       subscription_required = true
-      service_url           = azurerm_cognitive_account.this.endpoint
+      service_url           = module.platform.cognitive_account_endpoint
       import = {
         content_format = "openapi"
         content_value  = file("${path.module}/specs/llm.yaml")

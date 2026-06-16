@@ -22,6 +22,11 @@ terraform.tfstate.d/
 azd/.env
 .env
 .env.*
+env/*.auto.tfvars
+env/backend.azurerm.hcl
+tfplan
+tfplan.*
+apply-debug.log
 
 # PowerShell / shell artifacts
 *.ps1xml

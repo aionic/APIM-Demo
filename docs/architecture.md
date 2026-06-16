@@ -2,7 +2,7 @@
 
 ## Solution summary
 
-This repository provisions an Azure API Management platform using Terraform and AzAPI. APIM Standard v2 serves as the public API gateway and integrates with Entra ID, Key Vault, Log Analytics, and an AI backend endpoint pattern.
+This repository provisions an Azure API Management platform using Terraform modules and AzAPI. APIM Standard v2 serves as the public API gateway and integrates with Entra ID, Key Vault, Log Analytics, Azure Managed Grafana, and an AI backend endpoint pattern.
 
 ## Core topology
 
@@ -32,7 +32,7 @@ flowchart TD
     TF --> KV[Key Vault]
     TF --> LAW[Log Analytics]
     TF --> AOAI[Azure OpenAI]
-    TF --> GRAFANA[Grafana Container]
+    TF --> GRAFANA[Azure Managed Grafana]
     TF --> WB[Workbook Deployment]
 
     APIM --> APIS[APIs + Products + Subscriptions]
@@ -43,11 +43,13 @@ flowchart TD
 
 ## Solution flow
 
-1. Terraform deploys foundational resources: Resource Group, Log Analytics, Key Vault, APIM, and AI endpoint resource.
-2. APIM is configured with managed identity, named values, products, subscriptions, and API imports from OpenAPI specs.
-3. Inbound policy applies correlation/tracing headers before forwarding to backend APIs.
-4. Secret-backed values are stored in Key Vault and consumed by APIM policy/runtime configuration.
-5. Telemetry and audit logs are sent to Log Analytics for operational monitoring.
+1. Terraform composes three modules (`platform`, `apim`, `observability`) for clear separation of concerns.
+2. Foundational resources are created first: Resource Group, Log Analytics, Key Vault, and AI endpoint resource.
+3. APIM is configured with managed identity, named values, products, subscriptions, and API imports from OpenAPI specs.
+4. Observability resources provision workbook queries and Azure Managed Grafana with managed identity access to Log Analytics.
+5. Inbound policy applies correlation/tracing headers before forwarding to backend APIs.
+6. Secret-backed values are stored in Key Vault and consumed by APIM policy/runtime configuration.
+7. Telemetry and audit logs are sent to Log Analytics for operational monitoring.
 
 ## Request and telemetry flow
 
@@ -77,13 +79,15 @@ sequenceDiagram
 - Policy snippets implement network controls, header enrichment, and trace signals.
 - Diagnostic settings capture APIM gateway and developer portal audit logs.
 - Log Analytics is the central sink for runtime and operational telemetry.
+- Azure Managed Grafana reads Log Analytics with managed identity (Monitoring Reader role).
 
 ## Terraform alignment
 
 - Provider and Terraform versions are constrained in `versions.tf`.
-- Resources and policy composition are centralized through locals and AzAPI/azurerm resource blocks.
+- Resources are decomposed into module boundaries, with APIM specifics isolated in the `apim` module.
 - State artifacts are excluded from source control with `.gitignore`.
 - Recommended deployment pattern is `plan -out` followed by `apply` on the saved plan.
+- Local Entra values belong in `env/demo.auto.tfvars`; remote backend settings belong in `env/backend.azurerm.hcl`.
 
 ## Recommended next steps
 

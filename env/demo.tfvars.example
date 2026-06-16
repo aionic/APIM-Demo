@@ -1,0 +1,8 @@
+location            = "westus3"
+demo_name           = "apim-demo"
+publisher_email     = "you@example.com"
+publisher_name      = "Your Team"
+apim_sku_name       = "StandardV2"
+tenant_id           = "<your-entra-tenant-id-guid>"
+entra_client_id     = "<your-entra-app-client-id-guid>"
+entra_client_secret = "<your-entra-app-client-secret>"
