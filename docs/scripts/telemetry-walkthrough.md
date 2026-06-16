@@ -123,4 +123,4 @@ union isfuzzy=true AzureDiagnostics, ApiManagementGatewayLogs
 
 - APIM diagnostics ingestion can lag by a few minutes; if no data appears immediately, rerun the query window for 30-60 minutes.
 - This repo config enables `GatewayLogs`, `WebSocketConnectionLogs`, and `DeveloperPortalAuditLogs` to Log Analytics.
-- If APIM IP filtering blocks your source address, requests can return `403` and still produce useful telemetry for the demo.
+- If requests fail, run the smoke script first and confirm all APIs return `200` before running burst traffic.

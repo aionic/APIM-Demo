@@ -9,7 +9,7 @@ locals {
   ai_service_name      = substr("${local.name_prefix}ais${random_string.suffix.result}", 0, 24)
   ai_hub_name          = substr("${local.name_prefix}hub${random_string.suffix.result}", 0, 64)
   ai_project_name      = substr("${local.name_prefix}proj${random_string.suffix.result}", 0, 64)
-  apim_is_v2_sku       = strcontains(var.apim_sku_name, "V2_")
+  apim_is_v2_sku       = var.apim_sku_name == "Developer" || strcontains(var.apim_sku_name, "V2")
 
   tags = {
     environment = "demo"
@@ -20,9 +20,6 @@ locals {
   global_policy = <<-XML
 <policies>
  <inbound>
-   <ip-filter action="allow">
-${join("\n", [for ip in var.allowed_ip_addresses : "      <address>${ip}</address>"])}
-   </ip-filter>
    <set-header name="x-correlation-id" exists-action="override">
      <value>@(Guid.NewGuid().ToString())</value>
    </set-header>
@@ -34,7 +31,7 @@ ${join("\n", [for ip in var.allowed_ip_addresses : "      <address>${ip}</addres
 </policies>
 XML
 
- api_policy = <<-XML
+  api_policy = <<-XML
 <policies>
  <inbound>
    <base />
@@ -58,6 +55,60 @@ XML
 </policies>
 XML
 
+  named_values = {
+    DemoSecret = {
+      display_name = "DemoSecret"
+      secret       = true
+      value        = azurerm_key_vault_secret.demo.value
+      tags         = ["demo", "secret"]
+    }
+    WeatherBaseUrl = {
+      display_name = "WeatherBaseUrl"
+      secret       = false
+      value        = "https://api.open-meteo.com/v1"
+      tags         = ["demo", "external"]
+    }
+    TimeBaseUrl = {
+      display_name = "TimeBaseUrl"
+      secret       = false
+      value        = "https://worldtimeapi.org/api"
+      tags         = ["demo", "external"]
+    }
+    EchoBaseUrl = {
+      display_name = "EchoBaseUrl"
+      secret       = false
+      value        = "https://postman-echo.com"
+      tags         = ["demo", "external"]
+    }
+  }
+
+  products = {
+    demo = {
+      display_name          = "Demo Product"
+      description           = "Starter product for the APIM migration demo"
+      subscription_required = true
+      approval_required     = false
+      state                 = "published"
+      api_names             = ["weather", "time", "echo", "llm"]
+      group_names           = ["developers"]
+      subscriptions_limit   = 1
+      terms                 = null
+    }
+  }
+
+  subscriptions = {
+    demo-subscription = {
+      display_name     = "Demo Subscription"
+      scope_type       = "product"
+      scope_identifier = "demo"
+      state            = "active"
+      allow_tracing    = true
+      primary_key      = null
+      secondary_key    = null
+      user_id          = null
+    }
+  }
+
   apis = {
     weather = {
       display_name          = "Weather API"
@@ -80,9 +131,9 @@ XML
       path                  = "time"
       protocols             = ["https"]
       revision              = "1"
-      description           = "Public time sample imported from WorldTimeAPI"
+      description           = "Stable GET sample used for the APIM demo"
       subscription_required = true
-      service_url           = "https://worldtimeapi.org/api"
+      service_url           = "https://postman-echo.com"
       import = {
         content_format = "openapi"
         content_value  = file("${path.module}/specs/time.yaml")

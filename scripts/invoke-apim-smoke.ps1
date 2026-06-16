@@ -22,7 +22,7 @@ $requests = @(
   @{
     Name   = "time"
     Method = "GET"
-    Url    = "$base/time/timezone/Etc%2FUTC"
+    Url    = "$base/time/get?source=apim-smoke"
     Body   = $null
   },
   @{

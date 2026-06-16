@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $base = $GatewayUrl.TrimEnd("/")
 $routes = @(
   "$base/weather/forecast?latitude=47.6062&longitude=-122.3321",
-  "$base/time/timezone/Etc/UTC",
+  "$base/time/get?source=apim-burst",
   "$base/echo/get?source=apim-burst"
 )
 

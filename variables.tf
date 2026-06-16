@@ -24,8 +24,13 @@ variable "publisher_name" {
 
 variable "apim_sku_name" {
   type        = string
-  default     = "StandardV2_1"
-  description = "APIM SKU."
+  default     = "StandardV2"
+  description = "APIM SKU for the v2 deployment."
+
+  validation {
+    condition     = var.apim_sku_name == "StandardV2"
+    error_message = "This refactor is locked to APIM Standard v2. Set apim_sku_name to StandardV2."
+  }
 }
 
 variable "allowed_ip_addresses" {

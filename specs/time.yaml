@@ -2,23 +2,17 @@ openapi: 3.0.0
 info:
   title: Time Demo API
   version: 1.0.0
-  description: Minimal public time sample used for the APIM demo.
+  description: Stable GET sample used for the APIM demo.
 servers:
-  - url: https://worldtimeapi.org/api
+  - url: https://postman-echo.com
 paths:
-  /timezone/{zone}:
+  /get:
     get:
-      summary: Get the current time for a timezone
+      summary: Return a stable echo payload
       operationId: getTime
-      parameters:
-        - in: path
-          name: zone
-          required: true
-          schema:
-            type: string
       responses:
         '200':
-          description: Time returned successfully
+          description: Payload returned successfully
           content:
             application/json:
               schema:

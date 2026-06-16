@@ -1,17 +1,22 @@
 output "apim_gateway_url" {
   description = "APIM gateway URL"
-  value       = module.apim.apim_gateway_url
+  value       = "https://${azapi_resource.apim.name}.azure-api.net"
 }
 
 output "apim_portal_url" {
   description = "APIM developer portal URL"
-  value       = "${module.apim.apim_gateway_url}/developer"
+  value       = "https://${azapi_resource.apim.name}.azure-api.net/developer"
 }
 
 output "subscription_keys" {
   description = "APIM subscription keys for demo product"
   sensitive   = true
-  value       = module.apim.subscription_keys
+  value = {
+    for key, sub in azurerm_api_management_subscription.this : key => {
+      primary_key   = sub.primary_key
+      secondary_key = sub.secondary_key
+    }
+  }
 }
 
 output "resource_group_name" {

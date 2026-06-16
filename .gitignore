@@ -3,5 +3,34 @@
 *.tfstate.*
 *.tfvars
 *.tfplan
+*.tfplan.*
+*.auto.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 crash.log
 *.log
+
+# Terraform / provider artifacts
+.terraform.lock.hcl.backup
+terraform.rc
+terraform.tfstate.d/
+
+# Azure / local environment
+.azure/
+azd/.env
+.env
+.env.*
+
+# PowerShell / shell artifacts
+*.ps1xml
+*.clixml
+*.tmp
+*.bak
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

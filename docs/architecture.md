@@ -2,7 +2,7 @@
 
 ## Solution summary
 
-This repository provisions an Azure API Management platform using Terraform and Azure Verified Modules. APIM Standard v2 serves as the public API gateway and integrates with Entra ID, Key Vault, Log Analytics, and an AI backend endpoint pattern.
+This repository provisions an Azure API Management platform using Terraform and AzAPI. APIM Standard v2 serves as the public API gateway and integrates with Entra ID, Key Vault, Log Analytics, and an AI backend endpoint pattern.
 
 ## Core topology
 
@@ -23,17 +23,51 @@ flowchart LR
     AIAPI --> AIBACKEND[Azure OpenAI / AI Endpoint]
 ```
 
+## Deployment topology
+
+```mermaid
+flowchart TD
+    TF[Terraform Apply] --> RG[Resource Group]
+    TF --> APIM[APIM Service via AzAPI]
+    TF --> KV[Key Vault]
+    TF --> LAW[Log Analytics]
+    TF --> AOAI[Azure OpenAI]
+    TF --> GRAFANA[Grafana Container]
+    TF --> WB[Workbook Deployment]
+
+    APIM --> APIS[APIs + Products + Subscriptions]
+    APIM --> OAuth[Entra OAuth + Portal IdP]
+    APIM --> RBAC[Managed Identity RBAC]
+    APIS --> POL[Global and API Policies]
+```
+
 ## Solution flow
 
 1. Terraform deploys foundational resources: Resource Group, Log Analytics, Key Vault, APIM, and AI endpoint resource.
 2. APIM is configured with managed identity, named values, products, subscriptions, and API imports from OpenAPI specs.
-3. Inbound policy applies IP allowlisting and correlation/tracing headers before forwarding to backend APIs.
+3. Inbound policy applies correlation/tracing headers before forwarding to backend APIs.
 4. Secret-backed values are stored in Key Vault and consumed by APIM policy/runtime configuration.
 5. Telemetry and audit logs are sent to Log Analytics for operational monitoring.
 
+## Request and telemetry flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant APIM as APIM Gateway
+  participant Backend as Backend API
+  participant LA as Log Analytics
+  Client->>APIM: HTTPS call + subscription key
+  APIM->>APIM: Evaluate policies
+  APIM->>Backend: Forward request
+  Backend-->>APIM: Response
+  APIM-->>Client: Response payload
+  APIM->>LA: Gateway + diagnostics logs
+```
+
 ## Security and identity
 
-- APIM ingress is restricted with configurable IP allowlist policy.
 - OAuth2 authorization server is configured against Microsoft Entra ID.
 - Managed identity is used for APIM access to dependent Azure resources.
 - Secrets are handled through Key Vault and APIM named values.
@@ -47,7 +81,7 @@ flowchart LR
 ## Terraform alignment
 
 - Provider and Terraform versions are constrained in `versions.tf`.
-- Resources and policy composition are centralized through locals and AVM module inputs.
+- Resources and policy composition are centralized through locals and AzAPI/azurerm resource blocks.
 - State artifacts are excluded from source control with `.gitignore`.
 - Recommended deployment pattern is `plan -out` followed by `apply` on the saved plan.
 

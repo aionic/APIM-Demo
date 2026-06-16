@@ -1,59 +1,76 @@
 # Azure API Management Terraform Solution
 
 [![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.9-623CE4.svg)](https://www.terraform.io/)
-[![Azure](https://img.shields.io/badge/Azure-API%20Management-0078D4.svg)](https://learn.microsoft.com/azure/api-management/)
+[![Azure APIM](https://img.shields.io/badge/Azure-API%20Management-0078D4.svg)](https://learn.microsoft.com/azure/api-management/)
+[![AzAPI](https://img.shields.io/badge/Provider-AzAPI-1f6feb.svg)](https://registry.terraform.io/providers/Azure/azapi/latest)
+[![PowerShell](https://img.shields.io/badge/PowerShell-7%2B-5391FE.svg)](https://learn.microsoft.com/powershell/)
+[![Mermaid](https://img.shields.io/badge/Docs-Mermaid-ff3670.svg)](https://mermaid.js.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Repo](https://img.shields.io/badge/GitHub-aionic%2FAPIM--Demo-181717.svg?logo=github)](https://github.com/aionic/APIM-Demo)
 
-A Terraform implementation of Azure API Management (APIM) Developer v2 with Azure-native identity, secret management, observability, OAuth flows, and sample API routing patterns.
-
-This solution provisions:
-
-- APIM Developer v2 with managed identity (demo-friendly SKU)
-- API surface for weather, time, echo, and AI gateway patterns
-- Entra ID OAuth authorization server and APIM Entra identity provider configuration
-- Monitoring via Azure Monitor workbooks and Grafana dashboards
-- Key Vault-backed secret flow for APIM named values
-- Log Analytics diagnostics for gateway, portal, and audit telemetry
-- APIM service RBAC grant for the currently authenticated deployment identity
+Opinionated Terraform deployment for **Azure API Management Standard v2** with:
+1. **AzAPI-provisioned APIM service** (v2 SKU support)
+2. **Entra OAuth** (authorization server + portal identity provider)
+3. **Observability** (Log Analytics, Azure Monitor workbook, Grafana)
+4. **Demo APIs** (weather/time/echo/llm) and repeatable traffic scripts
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    C[Client / Developer] --> APIM[Azure API Management Standard v2]
+    User[Demo User / API Consumer] --> APIM[Azure API Management<br/>Standard v2]
+    User --> Portal[Developer Portal]
+    Portal --> APIM
 
-    subgraph Gateway["APIM Runtime"]
-      APIM --> W[Weather API]
-      APIM --> T[Time API]
-      APIM --> E[Echo API]
-      APIM --> L[AI Gateway API]
+    subgraph APIs[Published API Surface]
+      APIM --> Weather[Weather API]
+      APIM --> Time[Time API]
+      APIM --> Echo[Echo API]
+      APIM --> LLM[AI Gateway API]
     end
 
     APIM --> KV[Azure Key Vault]
     APIM --> LAW[Log Analytics Workspace]
-    APIM --> AAD[Microsoft Entra ID OAuth2]
-    L --> AOAI[Azure OpenAI / AI Endpoint]
+    APIM --> Entra[Microsoft Entra ID]
+    APIM --> AOAI[Azure OpenAI Account]
+    LAW --> WB[Azure Monitor Workbook]
+    LAW --> Grafana[Grafana Container]
 ```
 
-Detailed design and operational notes: [docs/architecture.md](docs/architecture.md)
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant G as APIM Gateway
+  participant B as Backend API
+  participant L as Log Analytics
+  U->>G: HTTPS request + subscription key
+  G->>G: Global/API policy execution
+  G->>B: Forward request
+  B-->>G: Response
+  G-->>U: API response
+  G->>L: Gateway + diagnostics logs
+```
 
-## Solution description
+Extended architecture notes: [`docs/architecture.md`](docs/architecture.md)
 
-The deployment builds a secure API gateway foundation on APIM and wires it to supporting Azure platform services:
+## What gets deployed
 
-1. APIM is deployed using Azure Verified Modules with a managed identity.
-2. APIM policies enforce ingress controls and attach operational headers/traces.
-3. Secrets are stored in Key Vault and consumed through APIM named values.
-4. Diagnostics are shipped to Log Analytics for monitoring and auditability.
-5. Product/subscription configuration enables controlled API consumer onboarding.
+1. Resource Group, Key Vault, Log Analytics, OpenAI account
+2. APIM Standard v2 (AzAPI) + system-assigned managed identity
+3. APIM APIs, products, subscriptions, and policies
+4. Entra authorization server and portal identity provider
+5. Workbook dashboard + Grafana container with password in Key Vault
 
-## Terraform workflow (best-practice aligned)
+## Quick start
 
-Prerequisites:
+### Prereqs
 
-- Azure CLI authenticated with a subscription that can create APIM, Key Vault, Log Analytics, and Cognitive Services resources
-- Terraform >= 1.9
-- Remote state backend configured for team usage (recommended for shared environments)
+- Azure CLI logged in to target subscription
+- Terraform `>= 1.9`
+- PowerShell 7+
+
+### Deploy
 
 ```powershell
 terraform init
@@ -63,90 +80,63 @@ terraform plan -out tfplan
 terraform apply tfplan
 ```
 
-Recommended variable handling:
-
-- Keep environment-specific settings in `*.tfvars` files outside source control.
-- Pass secrets with environment variables (`TF_VAR_*`) or secure pipeline variables.
-- Keep `terraform.tfstate` out of Git (already enforced by `.gitignore`).
-
-## Deployment notes
-
-- Update `allowed_ip_addresses` to include your current public egress IP before deployment.
-- Entra OAuth app is automatically created via `scripts/setup-oauth.ps1` (see [OAuth Configuration](#oauth-configuration) below).
-- Review APIM policy behavior before exposing publicly.
-
-## OAuth Configuration
-
-The solution includes Entra ID OAuth flows for the developer portal. No manual credential entry required—just run the setup script:
+### Run demo traffic
 
 ```powershell
-# Create Entra app registration and update Terraform variables
-pwsh .\scripts\setup-oauth.ps1
+$GatewayUrl = terraform output -raw apim_gateway_url
+$Sub = terraform output -json subscription_keys | ConvertFrom-Json
+$Key = $Sub.'demo-subscription'.primary_key
 
-# Apply infrastructure with OAuth enabled
+pwsh .\scripts\invoke-apim-smoke.ps1 -GatewayUrl $GatewayUrl -SubscriptionKey $Key
+pwsh .\scripts\invoke-apim-telemetry-burst.ps1 -GatewayUrl $GatewayUrl -SubscriptionKey $Key -Iterations 60 -DelayMs 250
+```
+
+### OAuth setup
+
+```powershell
+pwsh .\scripts\setup-oauth.ps1
 terraform apply
 ```
 
-The script:
-1. Creates an Entra app registration (`APIM-Demo-OAuth`)
-2. Generates a client secret
-3. Updates `variables.tf` with the real credentials
-4. Configures APIM authorization server and identity provider
+Developer portal URL:
 
-**Testing OAuth:** Once deployed, visit the developer portal at the APIM gateway URL and sign in with your Entra ID credentials.
-
-## Monitoring & Observability
-
-Deployments include two monitoring dashboards:
-
-### Azure Monitor Workbook
-Native Azure dashboard for APIM metrics—no setup required.
-- View at: **Portal → Resource Groups → apim-demo-rg → Workbooks → "APIM Demo Dashboard"**
-- Metrics: Request timeline, status code distribution, per-API latency
-
-### Grafana Dashboards
-Docker-based Grafana instance connected to Log Analytics for rich visualization.
-- Access at: `http://<grafana-container-dns>:3000`
-- Grafana admin password: Stored in Key Vault (`grafana-admin-password` secret)
-- Default username: `admin`
-
-To retrieve Grafana access details:
 ```powershell
-# Get container DNS name
-terraform output grafana_dns
+terraform output -raw apim_portal_url
+```
 
-# Get Grafana admin password from Key Vault
+## Monitoring
+
+### Azure Monitor workbook
+- Portal -> Resource Group -> Workbooks -> **APIM Demo Dashboard**
+
+### Grafana
+
+```powershell
+terraform output -raw grafana_dns
 az keyvault secret show --vault-name $(terraform output -raw kv_name) --name grafana-admin-password --query value -o tsv
 ```
 
-Add Log Analytics as a Grafana data source:
-- Type: Azure Monitor
-- Authentication: Service Principal (use APIM managed identity credentials)
-- Subscription ID: `$(az account show --query id -o tsv)`
+Telemetry walkthrough with KQL examples:  
+[`docs/scripts/telemetry-walkthrough.md`](docs/scripts/telemetry-walkthrough.md)
 
 ## Cleanup
-
-When done, tear down all resources to avoid ongoing costs:
 
 ```powershell
 pwsh .\scripts\teardown.ps1
 ```
 
-This script will prompt for confirmation before destroying resources. Use `-Force` to skip confirmation.
+Use `-Force` to skip prompt.
 
 ## Repository layout
 
-- `main.tf` — core resource graph and APIM module composition
-- `locals.tf` — API/policy configuration and derived naming
-- `variables.tf` — deployment configuration inputs
-- `specs/` — OpenAPI definitions imported into APIM
-- `monitoring.tf` — Azure Monitor workbook and Grafana container resources
-- `scripts/setup-oauth.ps1` — Entra OAuth app registration and credential setup
-- `scripts/teardown.ps1` — Safe infrastructure destruction with confirmation
-- `scripts/invoke-apim-smoke.ps1` — Three-API smoke test with correlation IDs and timing
-- `scripts/invoke-apim-telemetry-burst.ps1` — Load generator (configurable iterations/delays) for telemetry demo
-- `docs/scripts/telemetry-walkthrough.md` — telemetry demo and query walkthrough
+- `main.tf` - core resources and APIM composition
+- `locals.tf` - API maps and policy content
+- `variables.tf` - configurable inputs
+- `monitoring.tf` - workbook + Grafana resources
+- `specs/` - OpenAPI documents imported into APIM
+- `scripts/` - deploy/demo/teardown helpers
+- `docs/` - architecture and telemetry docs
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+MIT. See [`LICENSE`](LICENSE).
